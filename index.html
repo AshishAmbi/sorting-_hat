@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sorting Hat</title>
+
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial;
+            margin-top: 100px;
+            background: #111;
+            color: white;
+        }
+
+        h1 { font-size: 40px; }
+        h2 { font-size: 28px; }
+    </style>
+</head>
+
+<body>
+
+    <h1>🎩 Sorting Hat</h1>
+
+    <p>Hat Status:</p>
+    <h2 id="hatStatus">Checking...</h2>
+
+    <p>House Allotted:</p>
+    <h2 id="result">Waiting...</h2>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <script>
+        // 🔥 Firebase Config
+        const firebaseConfig = {
+          apiKey: "AIzaSyADKtoS9JyrWsYYbf9BdV2wxSOagvJ8y6o",
+          authDomain: "sortinghat-21d61.firebaseapp.com",
+          databaseURL: "https://sortinghat-21d61-default-rtdb.firebaseio.com",
+          projectId: "sortinghat-21d61",
+          storageBucket: "sortinghat-21d61.firebasestorage.app",
+          messagingSenderId: "52060870997",
+          appId: "1:52060870997:web:ad4c519e58fa07e1d7b7dc"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // 🔊 Sounds (5 total)
+        const soundList = [
+            new Audio("sound/garudadwar_1.mp3"),
+            new Audio("sound/garudadwar_2.mp3"),
+            new Audio("sound/mehenatkash.mp3"),
+            new Audio("sound/nagshakti.mp3"),
+            new Audio("sound/full_garudadwar.mp3")
+        ];
+
+        const soundNames = [
+            "Garudadwar 🎩",
+            "Garudadwar 2 🎩",
+            "Mehenatkash 🎩",
+            "Nagshakti 🎩",
+            "Full Garudadwar 🎩"
+        ];
+
+        // 🔧 Stop all sounds (extra safety)
+        function stopAllSounds() {
+            soundList.forEach(s => {
+                s.pause();
+                s.currentTime = 0;
+            });
+        }
+
+        // 🔥 Shuffle queue (no repeat)
+        let playQueue = [];
+
+        function shuffleArray() {
+            let arr = [];
+            for (let i = 0; i < soundList.length; i++) arr.push(i);
+
+            for (let i = arr.length - 1; i > 0; i--) {
+                let j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+
+            return arr;
+        }
+
+        function getNextSoundIndex() {
+            if (playQueue.length === 0) {
+                playQueue = shuffleArray();
+
+                if (playQueue.length > 1 && lastPlayedIndex !== null) {
+                    if (playQueue[playQueue.length - 1] === lastPlayedIndex) {
+                        [playQueue[playQueue.length - 1], playQueue[playQueue.length - 2]] =
+                        [playQueue[playQueue.length - 2], playQueue[playQueue.length - 1]];
+                    }
+                }
+
+                console.log("🔀 New Order:", playQueue);
+            }
+            return playQueue.pop();
+        }
+
+        let isPlaying = false;
+        let lastValue = 0;
+        let lastPlayedIndex = null;
+        let isAudioUnlocked = false;
+        let currentValue = 0;
+
+        function playRandomSound() {
+            if (isPlaying) return;
+
+            const index = getNextSoundIndex();
+            const selectedSound = soundList[index];
+
+            stopAllSounds();
+
+            lastPlayedIndex = index;
+            isPlaying = true;
+
+            selectedSound.play().catch(err => {
+                console.log("Audio blocked:", err);
+            });
+
+            document.getElementById("result").innerText = soundNames[index];
+
+            selectedSound.onended = () => {
+                isPlaying = false;
+                console.log("✅ Audio finished");
+            };
+        }
+
+        // 🔓 Unlock audio
+        document.body.addEventListener("click", () => {
+            console.log("🔓 Audio unlocked");
+
+            soundList.forEach(s => {
+                s.play().then(() => {
+                    s.pause();
+                    s.currentTime = 0;
+                }).catch(() => {});
+            });
+
+            isAudioUnlocked = true;
+
+            // 🔥 FIX: play if already activated
+            if (currentValue == 1 && !isPlaying) {
+                playRandomSound();
+            }
+
+        }, { once: true });
+
+        const ref = db.ref("hat/activated");
+
+        ref.on("value", (snapshot) => {
+            const value = snapshot.val();
+            currentValue = value;
+
+            // 🎩 Hat status
+            document.getElementById("hatStatus").innerText =
+                value == 1 ? "Hat Worn ✅" : "Hat Not Worn ❌";
+
+            // 🎯 Trigger detection
+            if (value == 1 && lastValue == 0) {
+
+                if (!isAudioUnlocked) {
+                    console.log("⛔ Waiting for user interaction...");
+                } else {
+                    playRandomSound();
+                }
+            }
+
+            lastValue = value;
+        });
+    </script>
+
+</body>
+</html>
